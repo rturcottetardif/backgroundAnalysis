@@ -1,0 +1,6 @@
+# ignore pictures
+*.pdf
+*.png
+# ignore datafiles
+*.npz
+
