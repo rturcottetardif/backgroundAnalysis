@@ -160,8 +160,8 @@ tray.AddModule(MakeEmptyWaveforms, "Empty")
 
 tray.AddModule("BringTheNoise", "NoiseGenerator",
                AntennaResponseName=antennaName,
-               UseThermalNoise=False,
-               ThermalNoiseTemp=300 * I3Units.kelvin,
+               UseThermalNoise=True,
+               ThermalNoiseTemp=40 * I3Units.kelvin,
                UseCaneNoise=True,
                RandomServiceName="gslRandom",
                InputName="EmptyWaveform",
@@ -194,5 +194,5 @@ plt.plot(freqs[2:]/I3Units.megahertz, medianSpectrum[3][2:], ls="--", lw=lw, c="
 plt.plot(freqs[2:]/I3Units.megahertz, medianSpectrum[4][2:], lw=lw, c="c", label="antenna 3, polarisation 0")
 plt.plot(freqs[2:]/I3Units.megahertz, medianSpectrum[5][2:], ls="--", lw=lw, c="c", label="antenna 3, polarisation 1")
 plt.legend()
-plt.savefig("SpectrumAndCane.pdf", bbox_inches='tight', transparent=True)
+plt.savefig("SpectrumAndCane_withTempNoise_ForMarie.pdf", bbox_inches='tight', transparent=True)
 plt.close()

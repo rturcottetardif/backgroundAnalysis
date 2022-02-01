@@ -5,6 +5,7 @@ import matplotlib.dates
 from datetime import datetime
 import pandas as pd
 from scipy.optimize import leastsq
+from icecube.icetray import I3Units
 
 from astropy.visualization import astropy_mpl_style, quantity_support
 plt.style.use(astropy_mpl_style)
@@ -29,8 +30,9 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 #plt.rcParams["font.family"] = "cursive"
 
-dataDir = "/data/user/rturcotte/analysis/background/data/"
-plotDir = "/data/user/rturcotte/analysis/background/plot/"
+year="2021"
+dataDir = "/data/user/rturcotte/analysis/background/comparisonDAQs/"
+plotDir = "/data/user/rturcotte/analysis/background/comparisonDAQs/"
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -42,13 +44,15 @@ args = parser.parse_args()
 #           Let's follow SgrA
 #
 #################################################
-zenGain_filename = dataDir + "antennaZenithGain.npy"
+# zenGain_filename = dataDir + "antennaZenithGain.npy"
+zenGain_filename = "/data/user/rturcotte/analysis/background/data/antennaZenithGain.npy"
+
 
 def readAntennaZenithResponse(filename):
     return np.load(filename)
 
 
-def getGalacticCenter(startTime='2020-04-17', endTime='2020-04-21', nbPoints=500):
+def getGalacticCenter(startTime='2022-01-26', endTime='2022-01-30', nbPoints=500):
     southPole = EarthLocation("89d59m24s", "-63d27m11s", 2800 * u.m)
     sgrA = SkyCoord.from_name('sgrA')
     # time = Time(['2020-4-17 23:00:00', '2020-4-18 4:00:00'])
@@ -75,14 +79,14 @@ def plotGalacticCenter(ax, t, galacticCenterToPlot, color="slateblue", label="Sg
 
 class BackgroundOscillation():
     def __init__(self, filename):
-        self.dataDir = "/data/user/rturcotte/analysis/background/data/"
-        self.plotDir = "/data/user/rturcotte/analysis/background/plot/"
+        self.dataDir = dataDir
+        self.plotDir = plotDir
         self.ant = 3
         self.pol = 2
 
         self.time = []
         self.rms = []
-        self.data = []
+        # self.data = []
         self.window = 300
         self.rmsMax = 30
         self.winType = None
@@ -96,8 +100,21 @@ class BackgroundOscillation():
     def readNpz(self, filename):
         data = np.load(filename, allow_pickle=True)
         self.time = data["time"]
-        self.rms = np.array([data["rms10"], data["rms11"], data["rms20"], data["rms21"], data["rms30"], data["rms31"]])
-        self.data = np.array([data["time"], data["rms10"], data["rms11"], data["rms20"], data["rms21"], data["rms30"], data["rms31"]])
+        self.rms = np.array([
+            data["rms10"],
+            data["rms11"],
+            data["rms20"],
+            data["rms21"],
+            data["rms30"],
+            data["rms31"]])
+        self.power = np.array([
+            data["power10"],
+            data["power11"],
+            data["power20"],
+            data["power21"],
+            data["power30"],
+            data["power31"]])
+        # self.data = np.array([data["time"], data["rms10"], data["rms11"], data["rms20"], data["rms21"], data["rms30"], data["rms31"]])
 
     def processData(self):
         self.toPandas()
@@ -131,6 +148,8 @@ class BackgroundOscillation():
         for iant in range(self.ant):
             for ich in range(self.pol):
                 idx = "rms{0}{1}".format(1+iant, ich)
+                self.df[idx] = self.rms[2*iant + ich]
+                idx = "power{0}{1}".format(1+iant, ich)
                 self.df[idx] = self.rms[2*iant + ich]
 
     def movingAverage(self):
@@ -184,9 +203,10 @@ class BackgroundOscillation():
         color = ["purple", "teal"]#"goldenrod",]
         idx = "{0}{1}".format(1+iant, ich)
         averageRmsNormalized = self.df["average"+idx] - np.mean(self.df["average"+idx])
-        ax.plot_date(self.df["time"], self.df["rms"+idx] - np.mean(self.df["average"+idx]), marker=".", c=color[ich], alpha=0.3, label="Ant. {0}, Pol. {1}".format(1+iant, ich))
-        ax.plot_date(self.df["time"], averageRmsNormalized,
-                     marker=".", c=color[ich], label="Moving average")# ant. {0}, pol. {1}".format(1+iant, ich))
+        ax.plot_date(self.df["time"], self.df["rms"+idx]/I3Units.mV,# - np.mean(self.df["average"+idx]),
+                     marker=".", c=color[ich], alpha=0.3, label="Ant. {0}, Pol. {1}".format(1+iant, ich))
+        # ax.plot_date(self.df["time"], averageRmsNormalized,
+        #              marker=".", c=color[ich], label="Moving average")
 
     def plotAll(self):
         fig = plt.figure(figsize=[20, 15])#, constrained_layout=True)
@@ -198,9 +218,9 @@ class BackgroundOscillation():
                 self.plotOnePol(ax, iant, ich)
                 ax.tick_params(axis='y', labelcolor="k")
 
-            ax.set_ylabel("amplitude RMS \n [ADC counts]")
+            ax.set_ylabel("RMS / mV")
             # ax1.set_xlim([datetime(2020, 4, 17), datetime(2020, 4, 21)])
-            # ax.set_ylim(-10, +10)
+            # ax.set_ylim(0, 0.3)
             #ax.legend(["test 1", "test 2"])
             plt.legend(loc="upper right")
             plt.setp(ax.get_xticklabels(), visible=False)
@@ -210,8 +230,6 @@ class BackgroundOscillation():
 
         # plt.savefig(plotDir + "AllAntennas.png")
         # plt.close()
-
-
 
     def plotRmsAndGalaxy(self):
         zenAntennaResponse = readAntennaZenithResponse(zenGain_filename)
@@ -232,14 +250,14 @@ class BackgroundOscillation():
             ax2 = ax1.twinx()
             phase_delay = -35*u.deg
             print(phase_delay)
-            plotGalacticCenter(ax2, t, np.sin(2*GC.az + phase_delay), color="gold", label="Sgr A* azimuth")
-            plotGalacticCenter(ax2, t, (GC_convoluted), color="palegreen", label="Sgr A* corrected")
+            plotGalacticCenter(ax2, t, np.sin(2*GC.az), color="gray", label="Sgr A* azimuth")
+            # plotGalacticCenter(ax2 , t, (GC_convoluted), color="lavender", label="Sgr A* corrected")
             ax2.tick_params(axis='y', labelcolor='goldenrod', color="goldenrod")
             ax2.set_ylabel("$\sin (\phi)$")
 
-            ax1.set_ylabel("amplitude RMS \n [ADC counts]")
-            ax1.set_xlim([datetime(2020, 4, 17), datetime(2020, 4, 21)])
-            ax1.set_ylim(-2.5, 2.5)
+            ax1.set_ylabel("amplitude RMS /mV")
+            ax1.set_xlim([datetime(2022, 1, 26), datetime(2022, 1, 30)])
+            # ax1.set_ylim(-2.5, 2.5)
             ax2.set_ylim(-2, 2)
             # ax1.get_legend().remove()
             # ax1.legend()
@@ -277,25 +295,23 @@ class BackgroundOscillation():
     #     plt.xticks(rotation=45)
     #     plt.tight_layout()
 
-
 # works only for bg_april for now
 bg = BackgroundOscillation(args.inputName)
-startTime = '2020-04-17'
-endTime = '2020-04-21'
+startTime = '{0}-01-26'.format(year)
+endTime = '{0}-01-30'.format(year)
 bg.processData()
 
 bg.plotAll()
-plt.savefig(plotDir + "movingAverage_all_2021.png")
+plt.savefig(plotDir + "movingAverage_all_{0}.png".format(year))
 plt.close()
 
 
-# bg.setTimeWindow(startTime=startTime, endTime=endTime)
-# bg.plotAll()
-# plt.savefig(plotDir + "movingAverage_all_timeWindow.png")
-# plt.close()
+bg.setTimeWindow(startTime=startTime, endTime=endTime)
+bg.plotAll()
+plt.savefig(plotDir + "movingAverage_all_timeWindow_{0}.png".format(year))
+plt.close()
 
-
-# bg.cleanData(n=6)
+# bg.cleanData(n=2)
 # bg.movingAverage()
 # bg.setTimeWindow(startTime=startTime, endTime=endTime)
 # bg.plotAll()
@@ -303,79 +319,12 @@ plt.close()
 # plt.close()
 
 # bg.plotRmsAndGalaxy()
-# plt.savefig(plotDir + "rmsAndGalaxy.png")
+# plt.savefig(plotDir + "rmsAndGalaxy_2021.png")
 # plt.close()
 
 # bg.correlationRmsGalaxy()
 # plt.savefig(plotDir + "correlationRmsAndGalaxy.png")
 # plt.close()
-
-
-
-
-
-windows = ["barthann", "bartlett", "blackman", "blackmanharris", "bohman",
-           "boxcar", "cosine", "flattop", "hamming", "hann", "nuttall",
-           "parzen", "triang"]
-
-""" Not working win_type
-"chebwin"
-"gaussian"
-"general_cosine"
-"general_gaussian"
-"general_hamming"
-"kaiser"
-"taylor"
-"tukey"
-"""
-
-# Some checks on better processing
-# startTime = '2020-04-17'
-# endTime = '2020-04-21'
-# bg = BackgroundOscillation(args.inputName)
-# fig = plt.figure(figsize=[15, 8*len(windows)])
-# spec = gridspec.GridSpec(ncols=1, nrows=len(windows))
-# for i, win in enumerate(windows):
-#     ax = fig.add_subplot(spec[i])
-#     bg.setWinType(win)
-#     bg.setWindow(200)
-#     bg.processData()
-#     bg.setTimeWindow(startTime=startTime, endTime=endTime)
-#     bg.cleanData(n=6)
-#     bg.movingAverage()
-#     bg.plotOnePol(ax, 1, 0)
-#     bg.plotOnePol(ax, 1, 1)
-#     #ax.set_ylim(30, 60)
-#     #ax.set_xlim([datetime(2020, 4, 12), datetime(2020, 4, 21)])
-#     plt.xlabel(win)
-# plt.savefig(plotDir + "ant1_winType.png")
-# plt.close()
-
-# winLen = np.arange(100, 1000, 50)
-
-# fig = plt.figure(figsize=[15, 8*len(winLen)])
-# spec = gridspec.GridSpec(ncols=1, nrows=len(winLen))
-# for i, win in enumerate(winLen):
-#     ax = fig.add_subplot(spec[i])
-#     bg.setWindow(win)
-#     bg.processData()
-#     bg.setTimeWindow(startTime=startTime, endTime=endTime)
-#     bg.cleanData(n=6)
-#     bg.movingAverage()
-#     bg.plotOnePol(ax, 1, 0)
-#     bg.plotOnePol(ax, 1, 1)
-#     ax.set_ylim(30, 60)
-#     ax.set_xlim([datetime(2020, 4, 12), datetime(2020, 4, 21)])
-#     plt.xlabel(win)
-# plt.savefig(plotDir + "ant1_winLen.png")
-# plt.close()
-
-# ON PAUSE
-# TO DO : try many windows type...
-
-
-
-
 
 
 
