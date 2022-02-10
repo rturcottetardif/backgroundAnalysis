@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -30,7 +31,8 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 #plt.rcParams["font.family"] = "cursive"
 
-year="2021"
+year = "2022"
+units = I3Units.mV
 dataDir = "/data/user/rturcotte/analysis/background/comparisonDAQs/"
 plotDir = "/data/user/rturcotte/analysis/background/comparisonDAQs/"
 
@@ -87,7 +89,7 @@ class BackgroundOscillation():
         self.time = []
         self.rms = []
         # self.data = []
-        self.window = 300
+        self.window = 150
         self.rmsMax = 30
         self.winType = None
         self.df = pd.DataFrame()
@@ -156,23 +158,26 @@ class BackgroundOscillation():
         for iant in range(self.ant):
             for ich in range(self.pol):
                 idx = "{0}{1}".format(1+iant, ich)
-                self.df["average"+idx] = self.df["rms"+idx].rolling(self.window, win_type=self.winType, min_periods=1).mean()
+                self.df["average"+idx] = self.df["rms"+idx].rolling(
+                    self.window, win_type=self.winType,
+                    min_periods=2).mean()
 
     def fitSinus(self, time, rms, phase=20):
         guess_mean = np.mean(rms)
         guess_std = np.std(rms)  # 3*np.std(rms)/(2**0.5)/(2**0.5)
         guess_phase = 1
         guess_freq = 0.00002314814 * 6
+        # guess_freq = 2/24/60/60
         guess_amp = guess_std / np.sqrt(2)
         t = [val.timestamp() for val in time]
+        # t = [val.to_pydatetime().total_seconds() for val in time]
         t = np.asarray(t)
 
         # we'll use this to plot our first estimate. This might already be good enough for you
         data_first_guess = guess_std * \
             np.sin(t * guess_freq + guess_phase) + guess_mean
 
-        print(data_first_guess.shape)
-        print(rms.shape)
+
         xx = np.arange(0, len(rms))
         # # Define the function to optimize, in this case, we want to minimize the difference
         # # between the actual data and our "guessed" parameters
@@ -183,44 +188,46 @@ class BackgroundOscillation():
         # # recreate the fitted curve using the optimized parameters
         data_fit = est_amp * np.sin(est_freq * t + est_phase) + est_mean
         print("estimated amp {0}, freq {1}, phase {2}".format(
-            est_amp, est_freq, est_phase))
+            est_amp, est_freq*60*60*24, est_phase))
 
-        # # recreate the fitted curve using the optimized parameters
-
-        # fine_t = np.arange(0,max(t),0.1)
-        # data_fit=est_amp*np.sin(est_freq*fine_t+est_phase)+est_mean
-        # plt.figure(figsize=[20,12])
-        #plt.plot(t, rms, '.')
-        #plt.plot(t, data_first_guess, label='first guess', lw=0.5)
         return data_fit
 
-    def plotSinusFit(self, ax, time, data_fit, c="k"):
-        #plt.plot_date(time, rms, '.', color=color, alpha=0.1, label="moving average")
-        #plt.plot_date(time, data_first_guess, ls="--", lw=1.5, marker="", label='first guess', color=color)
-        ax.plot_date(time, data_fit, ls="-", lw=3, marker="", label='sinus fitting', color=c)
+    def plotSinusFit(self, ax, time, data_fit, **kwargs):
+        ax.plot_date(time, data_fit, **kwargs)
 
     def plotOnePol(self, ax, iant, ich):
-        color = ["purple", "teal"]#"goldenrod",]
+        color = ["y", "c"]
+        color2 = ["tab:green", "tab:blue"]
         idx = "{0}{1}".format(1+iant, ich)
         averageRmsNormalized = self.df["average"+idx] - np.mean(self.df["average"+idx])
-        ax.plot_date(self.df["time"], self.df["rms"+idx]/I3Units.mV,# - np.mean(self.df["average"+idx]),
-                     marker=".", c=color[ich], alpha=0.3, label="Ant. {0}, Pol. {1}".format(1+iant, ich))
-        # ax.plot_date(self.df["time"], averageRmsNormalized,
-        #              marker=".", c=color[ich], label="Moving average")
+        averageRmsNormalized /= units
+        time = self.df["time"]
+
+        rms_centered = self.df["rms"+idx]/units - np.mean(self.df["average"+idx])/units
+        ax.plot_date(time, rms_centered,
+                     marker=".", c=color[ich], alpha=0.2, label="Ant. {0}, Pol. {1}".format(1+iant, ich))
+        ax.plot_date(time, averageRmsNormalized,
+                     marker=".", c=color2[ich], label="Moving average")
+        data_fit = self.fitSinus(time, rms_centered, phase=20)
+        self.plotSinusFit(ax, time, data_fit, ls="--", lw=2, marker="", label='sinus fitting', color="k")
 
     def plotAll(self):
         fig = plt.figure(figsize=[20, 15])#, constrained_layout=True)
         spec = gridspec.GridSpec(ncols=1, nrows=3)
-        color = ["goldenrod", "purple"]
         for iant in range(self.ant):
             for ich in range(self.pol):
                 ax = fig.add_subplot(spec[iant])
                 self.plotOnePol(ax, iant, ich)
-                ax.tick_params(axis='y', labelcolor="k")
+                # ax.tick_params(axis='y', labelcolor="k")
+            # if iant == 1:
+            #     ax.set_ylim(40, 70)
+            # elif iant == 2:
+            #     ax.set_ylim(50, 100)
+
 
             ax.set_ylabel("RMS / mV")
             # ax1.set_xlim([datetime(2020, 4, 17), datetime(2020, 4, 21)])
-            # ax.set_ylim(0, 0.3)
+            ax.set_ylim(-0.005, 0.005)
             #ax.legend(["test 1", "test 2"])
             plt.legend(loc="upper right")
             plt.setp(ax.get_xticklabels(), visible=False)
@@ -256,9 +263,9 @@ class BackgroundOscillation():
             ax2.set_ylabel("$\sin (\phi)$")
 
             ax1.set_ylabel("amplitude RMS /mV")
-            ax1.set_xlim([datetime(2022, 1, 26), datetime(2022, 1, 30)])
+            ax1.set_xlim([datetime(year, 1, 26), datetime(year, 1, 30)])
             # ax1.set_ylim(-2.5, 2.5)
-            ax2.set_ylim(-2, 2)
+            # ax2.set_ylim(-2, 2)
             # ax1.get_legend().remove()
             # ax1.legend()
             # ax2.legend()
@@ -297,8 +304,12 @@ class BackgroundOscillation():
 
 # works only for bg_april for now
 bg = BackgroundOscillation(args.inputName)
-startTime = '{0}-01-26'.format(year)
-endTime = '{0}-01-30'.format(year)
+if year == "2022":
+    startTime = '{0}-02-04'.format(year)
+    endTime = '{0}-02-08'.format(year)
+elif year == "2020":
+    startTime = '{0}-04-17'.format(year)
+    endTime = '{0}-04-21'.format(year)
 bg.processData()
 
 bg.plotAll()
