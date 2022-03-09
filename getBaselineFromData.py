@@ -316,17 +316,17 @@ tray.AddModule('PedestalRemover', "PedestalRemover",
                ElectronicsResponse=electronicname
                )
 
-if "2022" in name:
-    tray.AddModule(MedianNonCascaded, "TheMediantor",
-                   InputName="PedestalRemovedMap",
-                   # InputName="TAXIRadioWaveform",
-                   OutputName="MedianMap",
-                   ApplyInDAQ=False)
+# if "2022" in name:
+#     tray.AddModule(MedianNonCascaded, "TheMediantor",
+#                    InputName="PedestalRemovedMap",
+#                    # InputName="TAXIRadioWaveform",
+#                    OutputName="MedianMap",
+#                    ApplyInDAQ=False)
 
-    frameName = "MedianMap"
+#     frameName = "MedianMap"
 
-else:
-    frameName = "PedestalRemovedMap"
+# else:
+frameName = "PedestalRemovedMap"
 
 # tray.AddModule(WaveformPlotter, "TheMedianWFPlotter",
 #                InputName="MedianMap",

@@ -205,9 +205,9 @@ class BackgroundOscillation():
 
         rms_centered = self.df["rms"+idx]/units - np.mean(self.df["average"+idx])/units
         ax.plot_date(time, rms_centered,
-                     marker=".", c=color[ich], alpha=0.2, label="Ant. {0}, Pol. {1}".format(1+iant, ich))
+                     marker=",", c=color[ich], alpha=0.5, label="Ant. {0}, Pol. {1}".format(1+iant, ich))
         ax.plot_date(time, averageRmsNormalized,
-                     marker=".", c=color2[ich], label="Moving average")
+                     marker=",", c=color2[ich], label="Moving average")
         data_fit = self.fitSinus(time, rms_centered, phase=20)
         self.plotSinusFit(ax, time, data_fit, ls="--", lw=2, marker="", label='sinus fitting', color="k")
 
@@ -305,21 +305,23 @@ class BackgroundOscillation():
 # works only for bg_april for now
 bg = BackgroundOscillation(args.inputName)
 if year == "2022":
-    startTime = '{0}-02-04'.format(year)
-    endTime = '{0}-02-08'.format(year)
+    startTime = '{0}-02-12'.format(year)
+    endTime = '{0}-02-20'.format(year)
 elif year == "2020":
     startTime = '{0}-04-17'.format(year)
     endTime = '{0}-04-21'.format(year)
 bg.processData()
 
-bg.plotAll()
-plt.savefig(plotDir + "movingAverage_all_{0}.png".format(year))
-plt.close()
+# bg.plotAll()
+# plt.savefig(plotDir + "movingAverage_all_{0}.png".format(year))
+# plt.close()
 
 
 bg.setTimeWindow(startTime=startTime, endTime=endTime)
 bg.plotAll()
 plt.savefig(plotDir + "movingAverage_all_timeWindow_{0}.png".format(year))
+plt.axvline(datetime(2022, 2, 15), color="k")
+# plt.axhline(datetime(2022, 2, 24), color="k")
 plt.close()
 
 # bg.cleanData(n=2)
